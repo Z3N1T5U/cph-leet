@@ -1,0 +1,78 @@
+{
+  "name": "cph-leet",
+  "displayName": "CPH-Leet",
+  "description": "A tool for programmers to run and test LeetCode problems directly from VSCode.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cph-leet",
+          "title": "CPH-Leet",
+          "icon": "media/icon.png"
+        }
+      ]
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "leetCodeTestCases",
+          "name": "LeetCode Test Cases",
+          "when": "view == explorer"
+        },
+        {
+          "id": "testCasesExplorer",
+          "name": "Test Cases Explorer",
+          "when": "view == explorer"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "cph-leet.fetchTestCases",
+        "title": "CPH-Leet: Fetch Test Cases"
+      },
+      {
+        "command": "cph-leet.runTestCases",
+        "title": "CPH-Leet: Run Test Cases"
+      },
+      {
+        "command": "cph-leet.openWebview",
+        "title": "CPH-Leet: Open in Webview"
+      }
+    ]
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "npm run lint",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.96.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.16.0"
+  },
+  "dependencies": {
+    "@rollup/plugin-commonjs": "^28.0.2",
+    "@rollup/plugin-node-resolve": "^16.0.0",
+    "@rollup/plugin-typescript": "^12.1.2",
+    "axios": "^1.7.9",
+    "electron": "^34.0.0",
+    "fs": "^0.0.1-security",
+    "path": "^0.12.7",
+    "rollup-plugin-svelte": "^7.2.2",
+    "rollup-plugin-terser": "^7.0.2",
+    "svelte-preprocess": "^6.0.3"
+  }
+}
