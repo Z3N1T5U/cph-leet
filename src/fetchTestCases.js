@@ -87,12 +87,9 @@ function displayTestCases(testCases) {
 // Example usage
 const content = `
 <pre>
-<strong>Input:</strong> nums1 = [1,3], nums2 = [2]
-<strong>Output:</strong> 2.00000
-</pre>
-<pre>
-<strong>Input:</strong> nums1 = [1,2], nums2 = [3,4]
-<strong>Output:</strong> 2.50000
+<strong>format will be like this</strong>
+<strong>Input:</strong> 
+<strong>Output:</strong> 
 </pre>
 `;
 

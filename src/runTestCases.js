@@ -1,26 +1,26 @@
 const fs = require("fs");
 const path = require("path");
-const { writeFile } = require("fs").promises; // For saving the decoded file temporarily
-const { exec } = require("child_process"); // For running shell commands
-const tempDir = path.join(__dirname, "temp"); // Directory to save the temporary file
+const { writeFile } = require("fs").promises;
+const { exec } = require("child_process");
+const tempDir = path.join(__dirname, "temp");
 
-// Function to run individual test cases
-async function runTestCases(fileContent, testCase) {
-  // Ensure the file content is base64, decode it to get the actual file content
-  const decodedFileContent = Buffer.from(fileContent, "base64").toString(
-    "utf-8"
-  );
+// Function to run test cases
+async function runTestCases(fileContent, testCases) {
+  // Ensure testCases is always an array
+  if (!Array.isArray(testCases)) {
+    testCases = [testCases];
+    console.warn("testCases was not an array, converted to array.");
+  }
 
-  // Generate a temporary file path (in the temp directory)
-  const fileName = `tempFile_${Date.now()}.cpp`; // Adjust extension based on the file type (e.g., .py, .cpp)
+  const decodedFileContent = Buffer.from(fileContent, "base64").toString("utf-8");
+
+  const fileName = `tempFile_${Date.now()}.cpp`; // Adjust extension as needed
   const filePath = path.join(tempDir, fileName);
 
-  // Create temp directory if it doesn't exist
   if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir);
   }
 
-  // Write the decoded content to the temporary file
   try {
     await writeFile(filePath, decodedFileContent, "utf-8");
     console.log(`Temporary file saved to: ${filePath}`);
@@ -29,33 +29,62 @@ async function runTestCases(fileContent, testCase) {
     return { success: false, error: "Failed to save temporary file!" };
   }
 
-  // Validate the file extension (after saving)
   const fileExtension = path.extname(filePath).slice(1).toLowerCase();
   if (!["py", "cpp"].includes(fileExtension)) {
-    console.log(
-      "Invalid file format! Please provide a Python (.py) or C++ (.cpp) file."
-    );
     return { success: false, error: "Invalid file format!" };
   }
 
-  // Compile and execute based on the language
-  try {
-    const result = await compileAndExecuteCode(
-      filePath,
-      fileExtension,
-      testCase
-    );
-    console.log(result);
-    return { success: true, result: result };
-  } catch (error) {
-    console.log(`Execution failed:\n${error.message}`);
-    return { success: false, error: error.message };
+  const results = [];
+
+  for (const testCase of testCases) {
+    try {
+      const programOutput = await compileAndExecuteCode(filePath, fileExtension, testCase);
+
+      const passed = programOutput.trim() === testCase.output.trim();
+
+      console.log(`Test Case Input: ${testCase.input}`);
+      console.log(`Program Output: ${programOutput.trim()}`);
+      console.log(`Expected Output: ${testCase.output.trim()}`);
+      console.log(`Result: ${passed ? "PASSED" : "FAILED"}`);
+
+      results.push({
+        input: testCase.input,
+        expectedOutput: testCase.output,
+        programOutput: programOutput.trim(),
+        passed: passed,
+      });
+    } catch (error) {
+      console.error(`Execution failed for input ${testCase.input}: ${error.message}`);
+      console.log(`Result: FAILED`);
+
+      results.push({
+        input: testCase.input,
+        expectedOutput: testCase.output,
+        programOutput: `Error: ${error.message}`,
+        passed: false,
+      });
+    }
   }
+
+  // Cleanup temporary files
+  fs.unlink(filePath, (err) => {
+    if (err) console.error(`Failed to delete file: ${filePath}`);
+  });
+
+  const compiledFilePath = path.join(tempDir, "test_case");
+  fs.unlink(compiledFilePath, (err) => {
+    if (err) console.error(`Failed to delete compiled file: ${compiledFilePath}`);
+  });
+
+  // Return results array after processing all test cases
+  return results;
 }
+
 
 // Function to compile and execute code based on language
 async function compileAndExecuteCode(filePath, extension, testCase) {
   if (extension === "cpp") {
+
     return await compileAndExecuteCpp(filePath, testCase);
   } else if (extension === "py") {
     return await executePythonCode(filePath, testCase);
@@ -67,75 +96,36 @@ async function compileAndExecuteCode(filePath, extension, testCase) {
 // Function to compile and execute C++ code
 async function compileAndExecuteCpp(filePath, testCase) {
   return new Promise((resolve, reject) => {
-    // Compile the C++ code
-    exec(
-      `g++ ${filePath} -o ${path.join(tempDir, "test_case")}`,
-      (err, stdout, stderr) => {
-        if (err) {
-          reject(new Error(`C++ Compilation failed: ${stderr}`));
-        } else {
-          // Execute the compiled code
-          console.log(`Executing C++ code...`);
-          const childProcess = exec(
-            `${path.join(tempDir, "test_case")}`,
-            (err, stdout, stderr) => {
-              if (err) {
-                reject(new Error(`Execution failed: ${stderr}`));
-              } else {
-                // Compare the program output with the expected output
-                console.log(`Program output: ${stdout}`);
-                console.log(`Expected output: ${testCase.output}`);
-                if (stdout.trim() === testCase.output.trim()) {
-                  resolve("Test case passed!");
-                } else {
-                  reject(
-                    new Error(
-                      `Test case failed. Expected: ${
-                        testCase.output
-                      }, Got: ${stdout.trim()}`
-                    )
-                  );
-                }
-              }
-            }
-          );
+    exec(`g++ ${filePath} -o ${path.join(tempDir, "test_case")}`, (err, stdout, stderr) => {
+      if (err) {
+        reject(new Error(`C++ Compilation failed: ${stderr}`));
+      } else {
+        const childProcess = exec(`${path.join(tempDir, "test_case")}`, (err, stdout, stderr) => {
+          if (err) {
+            reject(new Error(`Execution failed: ${stderr}`));
+          } else {
+            resolve(stdout);
+          }
+        });
 
-          // Write the test case input directly to stdin
-          childProcess.stdin.write(testCase.input);
-          childProcess.stdin.end();
-
-          // Debugging: Log the child process details
-          console.log(`Child process details:`, childProcess);
-        }
+        childProcess.stdin.write(testCase.input);
+        childProcess.stdin.end();
       }
-    );
+    });
   });
 }
 
 // Function to execute Python code
 async function executePythonCode(filePath, testCase) {
   return new Promise((resolve, reject) => {
-    // Create the input file based on the test case input
     const inputFilePath = path.join(tempDir, "input.txt");
-    fs.writeFileSync(inputFilePath, testCase.input); // Write the input for the Python code
+    fs.writeFileSync(inputFilePath, testCase.input);
 
-    // Execute the Python code and pass the input file to it
     exec(`python3 ${filePath} < ${inputFilePath}`, (err, stdout, stderr) => {
       if (err) {
         reject(new Error(`Python Execution failed: ${stderr}`));
       } else {
-        // Compare the program output with the expected output
-        if (stdout.trim() === testCase.expectedOutput.trim()) {
-          resolve("Test case passed!");
-        } else {
-          reject(
-            new Error(
-              `Test case failed. Expected: ${
-                testCase.expectedOutput
-              }, Got: ${stdout.trim()}`
-            )
-          );
-        }
+        resolve(stdout);
       }
     });
   });

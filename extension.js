@@ -36,16 +36,16 @@ function activate(context) {
             });
         } else if (message.command === "runTestCases") {
           const testCases = message.testCases;
-          const results = [];
+      
 
-          for (const testCase of testCases) {
-            const result = await runTestCases(message.fileContent, testCase);
-            results.push({ testCase, result });
-          }
+    const testCaseResult = await runTestCases(message.fileContent, testCases);
+    console.log(testCaseResult)
+
+
 
           panel.webview.postMessage({
             command: "displayRunResults",
-            results: results,
+            results: testCaseResult,
           });
         }
       });
@@ -110,8 +110,18 @@ function activate(context) {
 
       try {
         const results = await runTestCases(fileContent, fileExtension, testCases);
+        const structuredResults = results.map((result) => {
+          return {
+            testCase: result.testCase,
+            result: result.status === "pass" ? "Pass" : "Fail",
+            actualOutput: result.actualOutput,
+            expectedOutput: result.expectedOutput,
+            errorMessage: result.errorMessage || "",
+          };
+        });
+
         vscode.window.showInformationMessage(
-          `Test cases executed successfully. Results:\n${results}`
+          `Test cases executed successfully. Results: ${JSON.stringify(structuredResults)}`
         );
       } catch (error) {
         vscode.window.showErrorMessage(
@@ -257,6 +267,16 @@ class TestCasesViewProvider {
                     word-spacing: 0.2rem;
                     font-size: 1.0rem;
                 }
+
+                .value.pass{
+                    color:green;
+                    font-wieght: bold;
+                }
+
+                .value.fail{
+                    color: red;
+                    font-weight: bold;  
+                }
                 .separator {
                     margin: 10px 0;
                 }
@@ -369,17 +389,83 @@ class TestCasesViewProvider {
             }
         }
 
-        if (message.command === 'showError') {
-            alert(message.message);
-        }
-    });
+    if (message.command === 'displayRunResults') {
+    const results = message.results; // Ensure this matches the actual results array structure
+    const container = document.getElementById('testCasesContainer');
+    container.innerHTML = ''; // Clear previous content
+
+    if (results && results.length > 0) {
+        results.forEach((result, index) => {
+            const div = document.createElement('div');
+            div.className = 'test-case';
+
+            // Input
+            const inputLabel = document.createElement('span');
+            inputLabel.className = 'label';
+            inputLabel.textContent = 'Input: ';
+            const inputValue = document.createElement('span');
+            inputValue.className = 'value';
+            inputValue.textContent = result.input; // Updated to use result.input
+
+            // Expected Output
+            const expectedLabel = document.createElement('span');
+            expectedLabel.className = 'label';
+            expectedLabel.textContent = 'Expected Output: ';
+            const expectedValue = document.createElement('span');
+            expectedValue.className = 'value';
+            expectedValue.textContent = result.expectedOutput; // Ensure this matches the property name
+
+            // Actual Output
+            const actualLabel = document.createElement('span');
+            actualLabel.className = 'label';
+            actualLabel.textContent = 'Actual Output: ';
+            const actualValue = document.createElement('span');
+            actualValue.className = 'value';
+            actualValue.textContent = result.programOutput; // Updated to use result.programOutput
+
+            // Result (Pass/Fail)
+            const resultLabel = document.createElement('span');
+            resultLabel.className = 'label';
+            resultLabel.textContent = 'Result: ';
+            const resultValue = document.createElement('span');
+            resultValue.className = result.passed ? 'value pass' : 'value fail'; // Use result.passed (boolean)
+            resultValue.textContent = result.passed ? 'Pass' : 'Fail'; // Convert boolean to text
+
+            const separator = document.createElement('div');
+            separator.className = 'separator';
+
+            // Append all elements to the test case div
+            div.appendChild(inputLabel);
+            div.appendChild(inputValue);
+            div.appendChild(document.createElement('br'));
+            div.appendChild(expectedLabel);
+            div.appendChild(expectedValue);
+            div.appendChild(document.createElement('br'));
+            div.appendChild(actualLabel);
+            div.appendChild(actualValue);
+            div.appendChild(document.createElement('br'));
+            div.appendChild(resultLabel);
+            div.appendChild(resultValue);
+            div.appendChild(separator);
+
+            container.appendChild(div);
+        });
+    } else {
+        container.innerHTML = '<p>No results to display.</p>';
+    }
+}
+
+
+    if (message.command === 'showError') {
+        alert(message.message);
+    }
+  });
 </script>
 
         </body>
         </html>
     `;
 }
-
 }
 
 function deactivate() {}
